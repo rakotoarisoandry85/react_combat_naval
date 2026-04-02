@@ -31,7 +31,6 @@ naval-combat/
     │   └── useGameState.js         # État global du jeu + actions (placement, tir, reset)
     │
     ├── components/
-    │   ├── App.jsx         → racine
     │   ├── StatusBar.jsx           # Barre de métriques (coups, touches, précision, phase)
     │   ├── MessageBar.jsx          # Feedback contextuel (touché/raté/victoire/défaite)
     │   ├── FleetSelector.jsx       # Boutons de sélection des navires (phase placement)
