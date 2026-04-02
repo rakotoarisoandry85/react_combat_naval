@@ -1,0 +1,116 @@
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap');
+
+/* ── Variables ───────────────────────────────────────── */
+:root {
+  --ocean:       #0a1628;
+  --ocean2:      #0d1f3c;
+  --radar:       #00ff88;
+  --radar-dim:   #00cc66;
+  --radar-faint: rgba(0, 255, 136, 0.15);
+  --danger:      #ff3344;
+  --warning:     #ffaa00;
+  --hit:         #ff6600;
+  --miss:        rgba(100, 180, 255, 0.6);
+  --ship:        #3a8ab5;
+  --ship-dark:   #1a5a80;
+  --panel:       rgba(0, 20, 40, 0.95);
+  --border:      rgba(0, 255, 136, 0.25);
+}
+
+*         { box-sizing: border-box; margin: 0; padding: 0; }
+body      { background: var(--ocean); color: var(--radar); font-family: 'Share Tech Mono', monospace; }
+#root     { min-height: 100vh; }
+
+/* ── Layout ──────────────────────────────────────────── */
+.app          { max-width: 880px; margin: 0 auto; padding: 16px; }
+.boards-row   { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 14px; }
+.board-wrap   { display: flex; flex-direction: column; gap: 6px; }
+
+/* ── Header ──────────────────────────────────────────── */
+.header        { text-align: center; padding: 10px 0 8px; border-bottom: 1px solid var(--border); margin-bottom: 14px; }
+.header h1     { font-family: 'Orbitron', monospace; font-size: 22px; font-weight: 900; letter-spacing: 4px; text-shadow: 0 0 20px var(--radar); }
+.header p      { font-size: 11px; color: var(--radar-dim); letter-spacing: 2px; margin-top: 3px; }
+
+/* ── Status bar ──────────────────────────────────────── */
+.status-bar        { display: flex; align-items: center; justify-content: space-between; background: var(--panel); border: 1px solid var(--border); padding: 8px 14px; border-radius: 6px; margin-bottom: 12px; }
+.status-bar__stat  { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.status-bar__label { font-size: 9px; color: var(--radar-dim); letter-spacing: 1px; }
+.status-bar__value { font-size: 16px; font-weight: bold; color: var(--radar); }
+.status-bar__value--danger { color: var(--danger); }
+.status-bar__value--warn   { color: var(--warning); }
+
+/* ── Message bar ─────────────────────────────────────── */
+.msg         { text-align: center; font-size: 13px; padding: 7px; background: var(--radar-faint); border: 1px solid var(--border); border-radius: 4px; margin-bottom: 12px; min-height: 34px; display: flex; align-items: center; justify-content: center; letter-spacing: 1px; }
+.msg--pulse  { animation: pulse 1s ease-in-out infinite; }
+.msg--hit    { color: var(--hit);   border-color: var(--hit);   background: rgba(255,100,0,0.12); }
+.msg--miss   { color: #64b4ff;      border-color: rgba(100,180,255,0.4); }
+.msg--win    { color: var(--radar); border-color: var(--radar); background: rgba(0,255,136,0.2); font-size: 15px; }
+.msg--lose   { color: var(--danger);border-color: var(--danger);background: rgba(255,51,68,0.12); font-size: 15px; }
+
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+/* ── Board label ─────────────────────────────────────── */
+.board-label { font-family: 'Orbitron', monospace; font-size: 10px; letter-spacing: 2px; color: var(--radar-dim); padding: 4px 8px; border-left: 2px solid var(--radar-dim); }
+
+/* ── Grid ────────────────────────────────────────────── */
+.grid         { display: grid; grid-template-columns: 20px repeat(10, 1fr); grid-template-rows: 20px repeat(10, 1fr); gap: 1px; background: rgba(0,255,136,0.06); border: 1px solid var(--border); border-radius: 4px; padding: 1px; aspect-ratio: 11 / 11; }
+.grid__header { display: flex; align-items: center; justify-content: center; font-size: 9px; color: rgba(0,255,136,0.4); }
+
+/* ── Cell ────────────────────────────────────────────── */
+.cell            { background: var(--ocean2); border-radius: 2px; position: relative; display: flex; align-items: center; justify-content: center; transition: background 0.15s; aspect-ratio: 1; }
+.cell--clickable { cursor: crosshair; }
+.cell--clickable:hover { background: rgba(0,255,136,0.2); }
+.cell--ship      { background: var(--ship-dark); border: 1px solid var(--ship); }
+.cell--preview-ok  { background: rgba(0,255,136,0.25) !important; }
+.cell--preview-err { background: rgba(255,51,68,0.25) !important; }
+
+.cell--hit  { background: rgba(255,80,0,0.35) !important; cursor: default; }
+.cell--hit::after  { content: '✕'; font-size: 13px; color: var(--hit); font-weight: bold; }
+.cell--miss { background: rgba(100,180,255,0.1) !important; cursor: default; }
+.cell--miss::after { content: '·'; font-size: 18px; color: var(--miss); }
+.cell--sunk { background: rgba(255,30,30,0.45) !important; }
+.cell--sunk::after { content: '✕'; font-size: 13px; color: var(--danger); font-weight: bold; }
+.cell--revealed { background: var(--ship-dark) !important; border: 1px solid var(--ship); }
+
+/* ── Controls ────────────────────────────────────────── */
+.controls { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; align-items: center; }
+
+/* ── Fleet selector ──────────────────────────────────── */
+.fleet-bar { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; background: var(--panel); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 10px; align-items: center; }
+.fleet-bar__label { font-size: 10px; color: var(--radar-dim); margin-right: 4px; }
+
+/* ── Buttons ─────────────────────────────────────────── */
+button {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 11px; letter-spacing: 1px;
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid var(--radar-dim);
+  color: var(--radar);
+  border-radius: 4px;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: all 0.15s;
+}
+button:hover   { background: var(--radar-faint); border-color: var(--radar); }
+button:active  { opacity: 0.7; }
+button:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.btn--primary { border-color: var(--radar); background: rgba(0,255,136,0.1); }
+.btn--primary:hover { background: rgba(0,255,136,0.22); }
+.btn--danger  { border-color: var(--danger); color: var(--danger); }
+.btn--danger:hover  { background: rgba(255,51,68,0.1); }
+.btn--ship    { border-color: var(--ship); color: #5aaddd; font-size: 10px; padding: 5px 10px; }
+.btn--ship.selected { background: rgba(58,138,181,0.25); border-color: #5aaddd; color: #fff; }
+.btn--ship.placed   { border-color: rgba(58,138,181,0.3); color: rgba(90,173,221,0.4); }
+
+/* ── Select ──────────────────────────────────────────── */
+select { font-family: 'Share Tech Mono', monospace; font-size: 11px; padding: 7px 10px; background: var(--ocean2); color: var(--radar); border: 1px solid var(--border); border-radius: 4px; }
+
+/* ── Log ─────────────────────────────────────────────── */
+.log          { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; height: 82px; overflow-y: auto; font-size: 10px; color: var(--radar-dim); letter-spacing: 0.5px; line-height: 1.7; }
+.log-hit      { color: var(--hit); }
+.log-miss     { color: #5090bb; }
+.log-sink     { color: var(--danger); font-weight: bold; }
+.log-ai       { color: var(--warning); }
+.log-sys      { color: var(--radar-dim); font-style: italic; }
