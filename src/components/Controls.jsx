@@ -1,15 +1,6 @@
 import React from 'react';
 import { DIFFICULTY } from '../constants/ships';
 
-/**
- * Controls – action buttons + difficulty selector.
- *
- * Props:
- *  - phase         : 'placement' | 'battle' | 'over'
- *  - allPlaced     : bool
- *  - difficulty    : string
- *  - onRotate / onRandom / onStart / onReset / onDiffChange
- */
 export default function Controls({
   phase,
   allPlaced,
@@ -24,10 +15,10 @@ export default function Controls({
 
   return (
     <div className="controls">
-      <button onClick={onRotate}  disabled={!inPlacement}>↻ PIVOTER</button>
-      <button onClick={onRandom}  disabled={!inPlacement} className="btn--primary">⚡ PLACEMENT AUTO</button>
-      <button onClick={onStart}   disabled={!allPlaced || phase !== 'placement'} className="btn--primary">▶ LANCER LA BATAILLE</button>
-      <button onClick={onReset}   className="btn--danger">↺ RESET</button>
+      <button onClick={onRotate} disabled={!inPlacement}>PIVOTER</button>
+      <button onClick={onRandom} disabled={!inPlacement} className="btn--primary">PLACEMENT AUTO</button>
+      <button onClick={onStart} disabled={!allPlaced || phase !== 'placement'} className="btn--primary">LANCER LA BATAILLE</button>
+      <button onClick={onReset} className="btn--danger">RESET</button>
 
       <select
         value={difficulty}
@@ -35,7 +26,7 @@ export default function Controls({
         disabled={phase === 'battle'}
       >
         {Object.entries(DIFFICULTY).map(([val, label]) => (
-          <option key={val} value={val}>Difficulté: {label}</option>
+          <option key={val} value={val}>Difficulte: {label}</option>
         ))}
       </select>
     </div>

@@ -1,5 +1,5 @@
-import { useState, useCallback, useRef } from 'react';
-import { SHIPS_DEF, CELL_STATE } from '../constants/ships';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { BOARD_SIZE, CELL_STATE, SHIPS } from '../constants/ships';
 import {
   getShipCells,
   canPlaceCells,
@@ -8,18 +8,18 @@ import {
 } from '../utils/boardUtils';
 import { useAI } from './useAI';
 
-const EMPTY_BOARD = () => Array(100).fill(null);
+const EMPTY_BOARD = () => Array(BOARD_SIZE * BOARD_SIZE).fill(CELL_STATE.EMPTY);
 
 function buildInitialState() {
   return {
-    phase: 'placement',       // 'placement' | 'battle' | 'over'
-    myBoard:    EMPTY_BOARD(),
-    myHits:     EMPTY_BOARD(),
+    phase: 'placement',
+    myBoard: EMPTY_BOARD(),
+    myHits: EMPTY_BOARD(),
     enemyBoard: EMPTY_BOARD(),
-    myShips:     [],
-    enemyShips:  [],
     _enemyShipBoard: EMPTY_BOARD(),
-    placedShips: Array(SHIPS_DEF.length).fill(false),
+    myShips: [],
+    enemyShips: [],
+    placedShips: Array(SHIPS.length).fill(false),
     selectedShip: 0,
     horizontal: true,
     shots: 0,
@@ -35,87 +35,97 @@ export function useGameState(difficulty) {
   const ai = useAI(difficulty);
   const aiTimerRef = useRef(null);
 
-  // ─── helpers ──────────────────────────────────────────────────────────────
+  useEffect(() => {
+    return () => {
+      if (aiTimerRef.current) clearTimeout(aiTimerRef.current);
+    };
+  }, []);
 
-  const addLog = (text, cls = '') =>
-    setState(s => ({ ...s, log: [...s.log, { text, cls, id: Date.now() + Math.random() }] }));
-
-  // ─── placement ────────────────────────────────────────────────────────────
-
-  const selectShip = useCallback((idx) => {
-    setState(s => ({ ...s, selectedShip: idx }));
+  const selectShip = useCallback((shipIndex) => {
+    setState(s => {
+      if (s.phase !== 'placement' || s.placedShips[shipIndex]) return s;
+      return { ...s, selectedShip: shipIndex };
+    });
   }, []);
 
   const toggleOrientation = useCallback(() => {
     setState(s => ({ ...s, horizontal: !s.horizontal }));
   }, []);
 
+  const getPreviewCells = useCallback((pos) => {
+    if (state.phase !== 'placement' || state.selectedShip < 0) return { cells: [], valid: false };
+    const ship = SHIPS[state.selectedShip];
+    if (!ship || state.placedShips[state.selectedShip]) return { cells: [], valid: false };
+
+    const cells = getShipCells(pos, ship.size, state.horizontal);
+    return { cells: cells || [], valid: canPlaceCells(state.myBoard, cells) };
+  }, [state]);
+
   const placeShip = useCallback((pos) => {
     setState(s => {
       if (s.phase !== 'placement') return s;
-      const si = s.selectedShip;
-      if (si < 0 || si >= SHIPS_DEF.length || s.placedShips[si]) return s;
 
-      const cells = getShipCells(pos, SHIPS_DEF[si].size, s.horizontal);
+      const shipIndex = s.selectedShip;
+      const ship = SHIPS[shipIndex];
+      if (!ship || s.placedShips[shipIndex]) return s;
+
+      const cells = getShipCells(pos, ship.size, s.horizontal);
       if (!canPlaceCells(s.myBoard, cells)) return s;
 
-      const newBoard     = [...s.myBoard];
-      const newPlaced    = [...s.placedShips];
-      const newMyShips   = [...s.myShips];
+      const myBoard = [...s.myBoard];
+      const placedShips = [...s.placedShips];
+      const myShips = [...s.myShips];
 
-      cells.forEach(i => { newBoard[i] = { shipIdx: si }; });
-      newPlaced[si] = true;
-      newMyShips.push({ idx: si, cells, hits: [] });
+      cells.forEach(i => { myBoard[i] = { shipIdx: shipIndex, si: shipIndex }; });
+      placedShips[shipIndex] = true;
+      myShips.push({
+        idx: shipIndex,
+        si: shipIndex,
+        cells,
+        horizontal: s.horizontal,
+        h: s.horizontal,
+        hits: [],
+      });
 
-      let nextSelected = si + 1;
-      while (nextSelected < SHIPS_DEF.length && newPlaced[nextSelected]) nextSelected++;
+      let nextSelected = shipIndex + 1;
+      while (nextSelected < SHIPS.length && placedShips[nextSelected]) nextSelected++;
 
       return {
         ...s,
-        myBoard:      newBoard,
-        placedShips:  newPlaced,
-        myShips:      newMyShips,
-        selectedShip: nextSelected < SHIPS_DEF.length ? nextSelected : -1,
+        myBoard,
+        myShips,
+        placedShips,
+        selectedShip: nextSelected < SHIPS.length ? nextSelected : -1,
       };
     });
   }, []);
 
-  const getPreviewCells = useCallback((pos) => {
-    return (s => {
-      if (s.phase !== 'placement' || s.selectedShip < 0) return { cells: [], valid: false };
-      const si    = s.selectedShip;
-      if (s.placedShips[si]) return { cells: [], valid: false };
-      const cells = getShipCells(pos, SHIPS_DEF[si].size, s.horizontal);
-      return { cells: cells || [], valid: canPlaceCells(s.myBoard, cells) };
-    })(state);
-  }, [state]);
-
   const randomPlacement = useCallback(() => {
-    const { board, ships } = generateRandomFleet(SHIPS_DEF);
+    const { board, ships } = generateRandomFleet(SHIPS);
     setState(s => ({
       ...s,
-      myBoard:      board,
-      myShips:      ships,
-      placedShips:  Array(SHIPS_DEF.length).fill(true),
+      myBoard: board,
+      myShips: ships,
+      placedShips: Array(SHIPS.length).fill(true),
       selectedShip: -1,
     }));
   }, []);
 
-  // ─── battle ───────────────────────────────────────────────────────────────
-
   const startBattle = useCallback(() => {
-    const { board: enemyShipBoard, ships: enemyShips } = generateRandomFleet(SHIPS_DEF);
+    const { board, ships } = generateRandomFleet(SHIPS);
     ai.resetAI();
     setState(s => ({
       ...s,
-      phase:           'battle',
-      enemyBoard:       EMPTY_BOARD(),
-      myHits:           EMPTY_BOARD(),
-      _enemyShipBoard:  enemyShipBoard,
-      enemyShips,
-      shots: 0, hits: 0,
-      gameover: false, winner: null,
-      log: [{ text: 'Bataille navale engagée ! Bonne chance, commandant.', cls: 'log-sys', id: Date.now() }],
+      phase: 'battle',
+      enemyBoard: EMPTY_BOARD(),
+      myHits: EMPTY_BOARD(),
+      _enemyShipBoard: board,
+      enemyShips: ships,
+      shots: 0,
+      hits: 0,
+      gameover: false,
+      winner: null,
+      log: [{ text: 'Bataille navale engagee ! Bonne chance, commandant.', cls: 'log-sys', id: Date.now() }],
     }));
   }, [ai]);
 
@@ -123,84 +133,100 @@ export function useGameState(difficulty) {
     setState(s => {
       if (s.phase !== 'battle' || s.gameover || s.enemyBoard[pos]) return s;
 
-      const newEnemyBoard = [...s.enemyBoard];
-      const newEnemyShips = s.enemyShips.map(sh => ({ ...sh, hits: [...sh.hits] }));
-      const newLog        = [...s.log];
-      let newShots = s.shots + 1;
-      let newHits  = s.hits;
-
+      const enemyBoard = [...s.enemyBoard];
+      const enemyShips = s.enemyShips.map(ship => ({ ...ship, hits: [...ship.hits] }));
+      const log = [...s.log];
+      const shots = s.shots + 1;
+      let hits = s.hits;
       const shipData = s._enemyShipBoard[pos];
+
       if (shipData) {
-        newHits++;
-        const ship = newEnemyShips[shipData.shipIdx];
+        const shipIndex = shipData.shipIdx ?? shipData.si;
+        const ship = enemyShips[shipIndex];
+        hits++;
         ship.hits.push(pos);
-        const sunk = ship.hits.length === ship.cells.length;
-        if (sunk) {
-          ship.cells.forEach(i => { newEnemyBoard[i] = CELL_STATE.SUNK; });
-          newLog.push({ text: `Vous coulez le ${SHIPS_DEF[ship.idx].name} en ${coordLabel(pos)} !`, cls: 'log-sink', id: Date.now() });
+
+        if (ship.hits.length === ship.cells.length) {
+          ship.cells.forEach(i => { enemyBoard[i] = CELL_STATE.SUNK; });
+          log.push({ text: `Coule le ${SHIPS[shipIndex].name} en ${coordLabel(pos)} !`, cls: 'log-sink', id: Date.now() });
         } else {
-          newEnemyBoard[pos] = CELL_STATE.HIT;
-          newLog.push({ text: `Touché en ${coordLabel(pos)}`, cls: 'log-hit', id: Date.now() });
+          enemyBoard[pos] = CELL_STATE.HIT;
+          log.push({ text: `Touche en ${coordLabel(pos)}`, cls: 'log-hit', id: Date.now() });
         }
       } else {
-        newEnemyBoard[pos] = CELL_STATE.MISS;
-        newLog.push({ text: `Raté en ${coordLabel(pos)}`, cls: 'log-miss', id: Date.now() });
+        enemyBoard[pos] = CELL_STATE.MISS;
+        log.push({ text: `Rate en ${coordLabel(pos)}`, cls: 'log-miss', id: Date.now() });
       }
 
-      const enemyAlive = newEnemyShips.filter(sh => sh.hits.length < sh.cells.length).length;
+      const enemyAlive = enemyShips.filter(ship => ship.hits.length < ship.cells.length).length;
       if (enemyAlive === 0) {
-        newLog.push({ text: '=== VICTOIRE ! Félicitations Commandant ! ===', cls: 'log-sink', id: Date.now() + 1 });
-        return { ...s, enemyBoard: newEnemyBoard, enemyShips: newEnemyShips, shots: newShots, hits: newHits, gameover: true, winner: 'player', log: newLog };
+        log.push({ text: '=== VICTOIRE ! ===', cls: 'log-sink', id: Date.now() + 1 });
+        return {
+          ...s,
+          phase: 'over',
+          enemyBoard,
+          enemyShips,
+          shots,
+          hits,
+          gameover: true,
+          winner: 'player',
+          log,
+        };
       }
 
-      return { ...s, enemyBoard: newEnemyBoard, enemyShips: newEnemyShips, shots: newShots, hits: newHits, log: newLog };
+      return { ...s, enemyBoard, enemyShips, shots, hits, log };
     });
 
-    // Schedule AI turn
     if (aiTimerRef.current) clearTimeout(aiTimerRef.current);
     aiTimerRef.current = setTimeout(() => {
       setState(s => {
         if (s.gameover || s.phase !== 'battle') return s;
 
-        const fired   = s.myHits;
-        const pos     = ai.pickCell(fired);
+        const pos = ai.pickCell(s.myHits);
         if (pos === -1) return s;
 
-        const newMyHits  = [...s.myHits];
-        const newMyShips = s.myShips.map(sh => ({ ...sh, hits: [...sh.hits] }));
-        const newLog     = [...s.log];
-
+        const myHits = [...s.myHits];
+        const myShips = s.myShips.map(ship => ({ ...ship, hits: [...ship.hits] }));
+        const log = [...s.log];
         const shipData = s.myBoard[pos];
+
         if (shipData) {
-          const ship = newMyShips[shipData.shipIdx];
+          const shipIndex = shipData.shipIdx ?? shipData.si;
+          const ship = myShips[shipIndex];
           ship.hits.push(pos);
-          const sunk = ship.hits.length === ship.cells.length;
-          if (sunk) {
-            ship.cells.forEach(i => { newMyHits[i] = CELL_STATE.SUNK; });
+
+          if (ship.hits.length === ship.cells.length) {
+            ship.cells.forEach(i => { myHits[i] = CELL_STATE.SUNK; });
             ai.registerSunk();
-            newLog.push({ text: `[IA] Coulé votre ${SHIPS_DEF[ship.idx].name} en ${coordLabel(pos)} !`, cls: 'log-ai', id: Date.now() });
+            log.push({ text: `[IA] Coule votre ${SHIPS[shipIndex].name} en ${coordLabel(pos)} !`, cls: 'log-ai', id: Date.now() });
           } else {
-            newMyHits[pos] = CELL_STATE.HIT;
+            myHits[pos] = CELL_STATE.HIT;
             ai.registerHit(pos);
-            newLog.push({ text: `[IA] Touché en ${coordLabel(pos)}`, cls: 'log-ai', id: Date.now() });
+            log.push({ text: `[IA] Touche en ${coordLabel(pos)}`, cls: 'log-ai', id: Date.now() });
           }
         } else {
-          newMyHits[pos] = CELL_STATE.MISS;
-          newLog.push({ text: `[IA] Raté en ${coordLabel(pos)}`, cls: 'log-ai', id: Date.now() });
+          myHits[pos] = CELL_STATE.MISS;
+          log.push({ text: `[IA] Rate en ${coordLabel(pos)}`, cls: 'log-ai', id: Date.now() });
         }
 
-        const myAlive = newMyShips.filter(sh => sh.hits.length < sh.cells.length).length;
+        const myAlive = myShips.filter(ship => ship.hits.length < ship.cells.length).length;
         if (myAlive === 0) {
-          newLog.push({ text: '=== DÉFAITE. La mer est cruelle.', cls: 'log-ai', id: Date.now() + 1 });
-          return { ...s, myHits: newMyHits, myShips: newMyShips, gameover: true, winner: 'ai', log: newLog };
+          log.push({ text: '=== DEFAITE. ===', cls: 'log-ai', id: Date.now() + 1 });
+          return {
+            ...s,
+            phase: 'over',
+            myHits,
+            myShips,
+            gameover: true,
+            winner: 'ai',
+            log,
+          };
         }
 
-        return { ...s, myHits: newMyHits, myShips: newMyShips, log: newLog };
+        return { ...s, myHits, myShips, log };
       });
-    }, 700);
+    }, 800);
   }, [ai]);
-
-  // ─── reset ────────────────────────────────────────────────────────────────
 
   const reset = useCallback(() => {
     if (aiTimerRef.current) clearTimeout(aiTimerRef.current);
@@ -208,19 +234,24 @@ export function useGameState(difficulty) {
     setState(buildInitialState());
   }, [ai]);
 
-  // ─── derived values ───────────────────────────────────────────────────────
-
-  const myAlive     = state.myShips.filter(s => s.hits.length < s.cells.length).length;
-  const enemyAlive  = state.enemyShips.filter(s => s.hits.length < s.cells.length).length;
-  const accuracy    = state.shots > 0 ? Math.round((state.hits / state.shots) * 100) + '%' : '—';
-  const allPlaced   = state.placedShips.every(Boolean);
+  const myAlive = state.myShips.filter(ship => ship.hits.length < ship.cells.length).length;
+  const enemyAlive = state.enemyShips.filter(ship => ship.hits.length < ship.cells.length).length;
+  const accuracy = state.shots > 0 ? `${Math.round((state.hits / state.shots) * 100)}%` : '-';
+  const allPlaced = state.placedShips.every(Boolean);
 
   return {
     state,
-    // actions
-    selectShip, toggleOrientation, placeShip, getPreviewCells,
-    randomPlacement, startBattle, playerShoot, reset,
-    // derived
-    myAlive, enemyAlive, accuracy, allPlaced,
+    selectShip,
+    toggleOrientation,
+    placeShip,
+    getPreviewCells,
+    randomPlacement,
+    startBattle,
+    playerShoot,
+    reset,
+    myAlive,
+    enemyAlive,
+    accuracy,
+    allPlaced,
   };
 }

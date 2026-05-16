@@ -1,12 +1,13 @@
-import React, { useState, useMemo } from 'react';
-import { useGameState }   from './hooks/useGameState';
-import StatusBar          from './components/StatusBar';
-import MessageBar         from './components/MessageBar';
-import FleetSelector      from './components/FleetSelector';
-import Controls           from './components/Controls';
-import Board              from './components/Board';
-import BattleLog          from './components/BattleLog';
-import { SHIPS_DEF }      from './constants/ships';
+import React, { useMemo, useState } from 'react';
+import { useGameState } from './hooks/useGameState';
+import StatusBar from './components/StatusBar';
+import MessageBar from './components/MessageBar';
+import FleetSelector from './components/FleetSelector';
+import Controls from './components/Controls';
+import Board from './components/Board';
+import BattleLog from './components/BattleLog';
+import NavalPresentation from './components/NavalPresentation';
+import { SHIPS } from './constants/ships';
 import './styles/naval.css';
 
 export default function App() {
@@ -14,35 +15,42 @@ export default function App() {
 
   const {
     state,
-    selectShip, toggleOrientation, placeShip, getPreviewCells,
-    randomPlacement, startBattle, playerShoot, reset,
-    myAlive, enemyAlive, accuracy, allPlaced,
+    selectShip,
+    toggleOrientation,
+    placeShip,
+    getPreviewCells,
+    randomPlacement,
+    startBattle,
+    playerShoot,
+    reset,
+    myAlive,
+    enemyAlive,
+    accuracy,
+    allPlaced,
   } = useGameState(difficulty);
 
-  // ── Derived message ──────────────────────────────────────────────────────
   const { msgText, msgVariant } = useMemo(() => {
-    const { phase, gameover, winner, selectedShip, horizontal, placedShips } = state;
+    const { phase, gameover, winner, selectedShip, horizontal } = state;
 
     if (phase === 'over' || gameover) {
       return winner === 'player'
-        ? { msgText: '🏆 VICTOIRE ! Flotte ennemie détruite ! La mer vous appartient !', msgVariant: 'win' }
-        : { msgText: '💀 DÉFAITE — Votre flotte a été anéantie...', msgVariant: 'lose' };
+        ? { msgText: 'VICTOIRE ! Flotte ennemie detruite.', msgVariant: 'win' }
+        : { msgText: 'DEFAITE. Votre flotte a ete aneantie.', msgVariant: 'lose' };
     }
 
     if (phase === 'placement') {
-      if (allPlaced) return { msgText: '✓ Tous les navires placés — Lancez la bataille !', msgVariant: 'default' };
-      const si = selectedShip;
-      const ship = SHIPS_DEF[si];
-      const orient = horizontal ? 'Horizontal ↔' : 'Vertical ↕';
+      if (allPlaced) return { msgText: 'Tous les navires sont places. Lancez la bataille !', msgVariant: 'default' };
+
+      const ship = SHIPS[selectedShip];
+      const orientation = horizontal ? 'Horizontal' : 'Vertical';
       return ship
-        ? { msgText: `Placez: ${ship.name} (taille ${ship.size}) — ${orient}`, msgVariant: 'default' }
-        : { msgText: '▶ Sélectionnez un navire à placer', msgVariant: 'default' };
+        ? { msgText: `Placez: ${ship.name} (taille ${ship.size}) - ${orientation}`, msgVariant: 'default' }
+        : { msgText: 'Selectionnez un navire a placer', msgVariant: 'default' };
     }
 
-    return { msgText: '⚔ COMBAT ENGAGÉ — Cliquez sur les eaux ennemies pour tirer !', msgVariant: 'default' };
+    return { msgText: 'COMBAT ENGAGE - Cliquez sur les eaux ennemies pour tirer !', msgVariant: 'default' };
   }, [state, allPlaced]);
 
-  // ── Difficulty change resets game ────────────────────────────────────────
   const handleDiffChange = (val) => {
     setDifficulty(val);
     reset();
@@ -50,13 +58,14 @@ export default function App() {
 
   return (
     <div className="app">
-      {/* Header */}
       <header className="header">
-        <h1>⚓ NAVAL COMBAT ⚓</h1>
-        <p>SYSTÈME DE COMBAT NAVAL TACTIQUE v2.0</p>
+        <div className="header__content">
+          <h1>NAVAL COMBAT</h1>
+          <p>SYSTEME DE COMBAT NAVAL TACTIQUE v2.0</p>
+        </div>
+        <NavalPresentation />
       </header>
 
-      {/* Status */}
       <StatusBar
         shots={state.shots}
         hits={state.hits}
@@ -66,10 +75,8 @@ export default function App() {
         phase={state.phase}
       />
 
-      {/* Message */}
       <MessageBar text={msgText} variant={msgVariant} />
 
-      {/* Fleet selector (placement only) */}
       {state.phase === 'placement' && (
         <FleetSelector
           placedShips={state.placedShips}
@@ -78,7 +85,6 @@ export default function App() {
         />
       )}
 
-      {/* Controls */}
       <Controls
         phase={state.phase}
         allPlaced={allPlaced}
@@ -90,14 +96,13 @@ export default function App() {
         onDiffChange={handleDiffChange}
       />
 
-      {/* Boards */}
       <div className="boards-row">
         <div className="board-wrap">
-          <div className="board-label">◈ VOTRE FLOTTE</div>
+          <div className="board-label">VOTRE FLOTTE</div>
           <Board
             isEnemy={false}
-            myBoard={state.myBoard}
             myHits={state.myHits}
+            myShips={state.myShips}
             getPreviewCells={getPreviewCells}
             onPlace={placeShip}
             phase={state.phase}
@@ -106,11 +111,11 @@ export default function App() {
         </div>
 
         <div className="board-wrap">
-          <div className="board-label">◈ EAUX ENNEMIES</div>
+          <div className="board-label">EAUX ENNEMIES</div>
           <Board
             isEnemy={true}
             enemyBoard={state.enemyBoard}
-            enemyShipBoard={state._enemyShipBoard}
+            enemyShips={state.enemyShips}
             onShoot={playerShoot}
             phase={state.phase}
             gameover={state.gameover}
@@ -118,7 +123,6 @@ export default function App() {
         </div>
       </div>
 
-      {/* Log */}
       <BattleLog entries={state.log} />
     </div>
   );

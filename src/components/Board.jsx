@@ -1,109 +1,182 @@
-import React, { useState, useCallback } from 'react';
-import Cell from './Cell';
-import { COLS_LABELS, CELL_STATE } from '../constants/ships';
-import { idx } from '../utils/boardUtils';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { BOARD_SIZE, CELL_STATE, COLUMN_LABELS, ROW_LABELS } from '../constants/ships';
+import {
+  drawExplosion,
+  drawGrid,
+  drawHover,
+  drawMiss,
+  drawPreview,
+  drawShip,
+  drawWater,
+} from '../utils/canvasDraw';
 
-/**
- * Board – renders a 10×10 grid with row/col headers.
- *
- * Props:
- *  - isEnemy        : bool – enemy board (shoot mode) vs player board (display)
- *  - myBoard        : Array(100) – cell data for the player grid
- *  - myHits         : Array(100) – AI shots on player grid
- *  - enemyBoard     : Array(100) – player shots on enemy grid
- *  - enemyShipBoard : Array(100) – revealed after game-over
- *  - getPreviewCells: fn(pos) → { cells, valid } – only used on player board during placement
- *  - onShoot        : fn(pos)  – only used on enemy board
- *  - onPlace        : fn(pos)  – only used on player board during placement
- *  - phase          : 'placement' | 'battle' | 'over'
- *  - gameover       : bool
- */
+const BOARD_PAD = 26;
+
 export default function Board({
   isEnemy = false,
-  myBoard,
   myHits,
+  myShips = [],
   enemyBoard,
-  enemyShipBoard,
+  enemyShips = [],
   getPreviewCells,
   onShoot,
   onPlace,
   phase,
   gameover,
 }) {
+  const canvasRef = useRef(null);
+  const animationRef = useRef(null);
+  const frameRef = useRef(0);
+  const [metrics, setMetrics] = useState({ size: 360, x0: BOARD_PAD, y0: BOARD_PAD, cs: 33 });
   const [hoverPreview, setHoverPreview] = useState({ cells: [], valid: false });
+  const [hoverEnemy, setHoverEnemy] = useState(-1);
 
-  const handleMouseEnter = useCallback((pos) => {
-    if (!isEnemy && phase === 'placement' && getPreviewCells) {
-      setHoverPreview(getPreviewCells(pos));
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const host = canvas?.parentElement;
+    if (!canvas || !host) return undefined;
+
+    const resize = () => {
+      const available = Math.max(280, Math.floor(host.getBoundingClientRect().width || 360));
+      const cs = Math.max(22, Math.floor((available - BOARD_PAD - 6) / BOARD_SIZE));
+      const size = BOARD_PAD + cs * BOARD_SIZE + 4;
+      const ratio = Math.min(window.devicePixelRatio || 1, 2);
+
+      canvas.width = Math.round(size * ratio);
+      canvas.height = Math.round(size * ratio);
+      canvas.style.height = `${size}px`;
+      setMetrics({ size, x0: BOARD_PAD, y0: BOARD_PAD, cs });
+    };
+
+    resize();
+    const observer = new ResizeObserver(resize);
+    observer.observe(host);
+    return () => observer.disconnect();
+  }, []);
+
+  const getCellFromEvent = useCallback((event) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return -1;
+
+    const rect = canvas.getBoundingClientRect();
+    const mx = (event.clientX - rect.left) * (metrics.size / rect.width);
+    const my = (event.clientY - rect.top) * (metrics.size / rect.height);
+    const c = Math.floor((mx - metrics.x0) / metrics.cs);
+    const r = Math.floor((my - metrics.y0) / metrics.cs);
+
+    if (c < 0 || c >= BOARD_SIZE || r < 0 || r >= BOARD_SIZE) return -1;
+    return r * BOARD_SIZE + c;
+  }, [metrics]);
+
+  const drawBoard = useCallback((frame) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    const ratio = canvas.width / metrics.size;
+    const waterSize = metrics.cs * BOARD_SIZE;
+
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    ctx.clearRect(0, 0, metrics.size, metrics.size);
+    drawWater(ctx, metrics.x0, metrics.y0, waterSize, metrics.cs, frame + (isEnemy ? 50 : 0));
+    drawGrid(ctx, metrics.x0, metrics.y0, metrics.cs, COLUMN_LABELS, ROW_LABELS);
+
+    if (!isEnemy) {
+      myShips.forEach(ship => {
+        drawShip(ctx, ship.si ?? ship.idx, ship.cells, ship.h ?? ship.horizontal, metrics.x0, metrics.y0, metrics.cs);
+      });
+    } else if (gameover) {
+      enemyShips.forEach(ship => {
+        if (ship.hits.length < ship.cells.length) {
+          drawShip(ctx, ship.si ?? ship.idx, ship.cells, ship.h ?? ship.horizontal, metrics.x0, metrics.y0, metrics.cs, 0.55);
+        }
+      });
     }
-  }, [isEnemy, phase, getPreviewCells]);
+
+    const hits = isEnemy ? enemyBoard : myHits;
+    for (let pos = 0; pos < BOARD_SIZE * BOARD_SIZE; pos++) {
+      const value = hits?.[pos];
+      const cx = metrics.x0 + (pos % BOARD_SIZE) * metrics.cs + metrics.cs / 2;
+      const cy = metrics.y0 + Math.floor(pos / BOARD_SIZE) * metrics.cs + metrics.cs / 2;
+
+      if (value === CELL_STATE.HIT || value === CELL_STATE.SUNK) {
+        drawExplosion(ctx, cx, cy, metrics.cs, frame + pos);
+      } else if (value === CELL_STATE.MISS) {
+        drawMiss(ctx, cx, cy, metrics.cs);
+      }
+    }
+
+    if (!isEnemy && phase === 'placement') {
+      drawPreview(ctx, hoverPreview.cells, hoverPreview.valid, metrics.x0, metrics.y0, metrics.cs);
+    }
+
+    if (isEnemy && phase === 'battle' && !gameover && hoverEnemy >= 0 && !enemyBoard?.[hoverEnemy]) {
+      drawHover(ctx, hoverEnemy, metrics.x0, metrics.y0, metrics.cs);
+    }
+  }, [enemyBoard, enemyShips, gameover, hoverEnemy, hoverPreview, isEnemy, metrics, myHits, myShips, phase]);
+
+  useEffect(() => {
+    const tick = () => {
+      frameRef.current += 1;
+      drawBoard(frameRef.current);
+      animationRef.current = requestAnimationFrame(tick);
+    };
+
+    tick();
+    return () => {
+      if (animationRef.current) cancelAnimationFrame(animationRef.current);
+    };
+  }, [drawBoard]);
+
+  const handleMouseMove = useCallback((event) => {
+    const pos = getCellFromEvent(event);
+
+    if (!isEnemy && phase === 'placement' && pos >= 0 && getPreviewCells) {
+      setHoverPreview(getPreviewCells(pos));
+      return;
+    }
+
+    if (isEnemy && phase === 'battle' && !gameover) {
+      setHoverEnemy(pos);
+      return;
+    }
+
+    setHoverPreview({ cells: [], valid: false });
+    setHoverEnemy(-1);
+  }, [gameover, getCellFromEvent, getPreviewCells, isEnemy, phase]);
 
   const handleMouseLeave = useCallback(() => {
     setHoverPreview({ cells: [], valid: false });
+    setHoverEnemy(-1);
   }, []);
 
-  const handleClick = useCallback((pos) => {
-    if (isEnemy && phase === 'battle' && !gameover) onShoot?.(pos);
-    if (!isEnemy && phase === 'placement')           onPlace?.(pos);
-  }, [isEnemy, phase, gameover, onShoot, onPlace]);
+  const handleClick = useCallback((event) => {
+    const pos = getCellFromEvent(event);
+    if (pos < 0) return;
 
-  const getCellState = useCallback((pos) => {
-    if (isEnemy) {
-      const v = enemyBoard?.[pos];
-      if (v === CELL_STATE.SUNK) return 'sunk';
-      if (v === CELL_STATE.HIT)  return 'hit';
-      if (v === CELL_STATE.MISS) return 'miss';
-      if (gameover && enemyShipBoard?.[pos] && !v) return 'revealed';
-      return null;
-    } else {
-      const hit = myHits?.[pos];
-      if (hit === CELL_STATE.SUNK) return 'sunk';
-      if (hit === CELL_STATE.HIT)  return 'hit';
-      if (hit === CELL_STATE.MISS) return 'miss';
-      if (myBoard?.[pos]) return 'ship';
-      return null;
+    if (isEnemy && phase === 'battle' && !gameover && !enemyBoard?.[pos]) {
+      onShoot?.(pos);
+      return;
     }
-  }, [isEnemy, enemyBoard, myHits, myBoard, enemyShipBoard, gameover]);
 
-  const isClickable = useCallback((pos) => {
-    if (isEnemy) return phase === 'battle' && !gameover && !enemyBoard?.[pos];
-    return phase === 'placement';
-  }, [isEnemy, phase, gameover, enemyBoard]);
-
-  const getPreview = useCallback((pos) => {
-    if (isEnemy || phase !== 'placement') return null;
-    if (!hoverPreview.cells.includes(pos)) return null;
-    return hoverPreview.valid ? 'ok' : 'err';
-  }, [isEnemy, phase, hoverPreview]);
-
-  const cells = [];
-
-  // Top-left corner
-  cells.push(<div key="corner" className="grid__header" />);
-
-  // Column headers
-  for (let c = 0; c < 10; c++) {
-    cells.push(<div key={`ch-${c}`} className="grid__header">{COLS_LABELS[c]}</div>);
-  }
-
-  // Rows
-  for (let r = 0; r < 10; r++) {
-    cells.push(<div key={`rh-${r}`} className="grid__header">{r + 1}</div>);
-    for (let c = 0; c < 10; c++) {
-      const pos = idx(r, c);
-      cells.push(
-        <Cell
-          key={pos}
-          state={getCellState(pos)}
-          preview={getPreview(pos)}
-          clickable={isClickable(pos)}
-          onClick={() => handleClick(pos)}
-          onMouseEnter={() => handleMouseEnter(pos)}
-          onMouseLeave={handleMouseLeave}
-        />
-      );
+    if (!isEnemy && phase === 'placement') {
+      onPlace?.(pos);
     }
-  }
+  }, [enemyBoard, gameover, getCellFromEvent, isEnemy, onPlace, onShoot, phase]);
 
-  return <div className="grid">{cells}</div>;
+  const canvasClass = [
+    'board-canvas',
+    isEnemy && phase === 'battle' && !gameover ? 'board-canvas--shootable' : '',
+  ].filter(Boolean).join(' ');
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className={canvasClass}
+      aria-label={isEnemy ? 'Grille ennemie illustree' : 'Grille de votre flotte illustree'}
+      onClick={handleClick}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+    />
+  );
 }
