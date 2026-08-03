@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { BOARD_SIZE, CELL_STATE, COLUMN_LABELS, ROW_LABELS } from '../constants/ships';
+import { BOARD_ROWS, BOARD_COLS, CELL_STATE, COLUMN_LABELS, ROW_LABELS } from '../constants/ships';
 import {
   drawExplosion,
   drawGrid,
@@ -27,7 +27,7 @@ export default function Board({
   const canvasRef = useRef(null);
   const animationRef = useRef(null);
   const frameRef = useRef(0);
-  const [metrics, setMetrics] = useState({ size: 360, x0: BOARD_PAD, y0: BOARD_PAD, cs: 33 });
+  const [metrics, setMetrics] = useState({ width: 360, height: 360, x0: BOARD_PAD, y0: BOARD_PAD, cs: 33 });
   const [hoverPreview, setHoverPreview] = useState({ cells: [], valid: false });
   const [hoverEnemy, setHoverEnemy] = useState(-1);
 
@@ -38,14 +38,15 @@ export default function Board({
 
     const resize = () => {
       const available = Math.max(280, Math.floor(host.getBoundingClientRect().width || 360));
-      const cs = Math.max(22, Math.floor((available - BOARD_PAD - 6) / BOARD_SIZE));
-      const size = BOARD_PAD + cs * BOARD_SIZE + 4;
+      const cs = Math.max(22, Math.floor((available - BOARD_PAD - 6) / BOARD_COLS));
+      const width = BOARD_PAD + cs * BOARD_COLS + 4;
+      const height = BOARD_PAD + cs * BOARD_ROWS + 4;
       const ratio = Math.min(window.devicePixelRatio || 1, 2);
 
-      canvas.width = Math.round(size * ratio);
-      canvas.height = Math.round(size * ratio);
-      canvas.style.height = `${size}px`;
-      setMetrics({ size, x0: BOARD_PAD, y0: BOARD_PAD, cs });
+      canvas.width = Math.round(width * ratio);
+      canvas.height = Math.round(height * ratio);
+      canvas.style.height = `${height}px`;
+      setMetrics({ width, height, x0: BOARD_PAD, y0: BOARD_PAD, cs });
     };
 
     resize();
@@ -59,13 +60,13 @@ export default function Board({
     if (!canvas) return -1;
 
     const rect = canvas.getBoundingClientRect();
-    const mx = (event.clientX - rect.left) * (metrics.size / rect.width);
-    const my = (event.clientY - rect.top) * (metrics.size / rect.height);
+    const mx = (event.clientX - rect.left) * (metrics.width / rect.width);
+    const my = (event.clientY - rect.top) * (metrics.height / rect.height);
     const c = Math.floor((mx - metrics.x0) / metrics.cs);
     const r = Math.floor((my - metrics.y0) / metrics.cs);
 
-    if (c < 0 || c >= BOARD_SIZE || r < 0 || r >= BOARD_SIZE) return -1;
-    return r * BOARD_SIZE + c;
+    if (c < 0 || c >= BOARD_COLS || r < 0 || r >= BOARD_ROWS) return -1;
+    return r * BOARD_COLS + c;
   }, [metrics]);
 
   const drawBoard = useCallback((frame) => {
@@ -73,12 +74,14 @@ export default function Board({
     if (!canvas) return;
 
     const ctx = canvas.getContext('2d');
-    const ratio = canvas.width / metrics.size;
-    const waterSize = metrics.cs * BOARD_SIZE;
+    const ratioX = canvas.width / metrics.width;
+    const ratioY = canvas.height / metrics.height;
+    const waterWidth = metrics.cs * BOARD_COLS;
+    const waterHeight = metrics.cs * BOARD_ROWS;
 
-    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-    ctx.clearRect(0, 0, metrics.size, metrics.size);
-    drawWater(ctx, metrics.x0, metrics.y0, waterSize, metrics.cs, frame + (isEnemy ? 50 : 0));
+    ctx.setTransform(ratioX, 0, 0, ratioY, 0, 0);
+    ctx.clearRect(0, 0, metrics.width, metrics.height);
+    drawWater(ctx, metrics.x0, metrics.y0, waterWidth, waterHeight, metrics.cs, frame + (isEnemy ? 50 : 0));
     drawGrid(ctx, metrics.x0, metrics.y0, metrics.cs, COLUMN_LABELS, ROW_LABELS);
 
     if (!isEnemy) {
@@ -94,10 +97,10 @@ export default function Board({
     }
 
     const hits = isEnemy ? enemyBoard : myHits;
-    for (let pos = 0; pos < BOARD_SIZE * BOARD_SIZE; pos++) {
+    for (let pos = 0; pos < BOARD_ROWS * BOARD_COLS; pos++) {
       const value = hits?.[pos];
-      const cx = metrics.x0 + (pos % BOARD_SIZE) * metrics.cs + metrics.cs / 2;
-      const cy = metrics.y0 + Math.floor(pos / BOARD_SIZE) * metrics.cs + metrics.cs / 2;
+      const cx = metrics.x0 + (pos % BOARD_COLS) * metrics.cs + metrics.cs / 2;
+      const cy = metrics.y0 + Math.floor(pos / BOARD_COLS) * metrics.cs + metrics.cs / 2;
 
       if (value === CELL_STATE.HIT || value === CELL_STATE.SUNK) {
         drawExplosion(ctx, cx, cy, metrics.cs, frame + pos);

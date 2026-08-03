@@ -1,19 +1,19 @@
-import { N } from '../constants/ships';
+import { BOARD_ROWS, BOARD_COLS } from '../constants/ships';
 
 /* ── Water texture ──────────────────────────────────────────────────────── */
-export function drawWater(ctx, x0, y0, size, cs, frame) {
+export function drawWater(ctx, x0, y0, width, height, cs, frame) {
   ctx.fillStyle = '#1e6fa8';
-  ctx.fillRect(x0, y0, size, size);
+  ctx.fillRect(x0, y0, width, height);
 
   ctx.strokeStyle = 'rgba(255,255,255,0.06)';
   ctx.lineWidth = 1;
   const off = (frame * 0.4) % cs;
-  for (let wx = x0 - cs + off; wx < x0 + size; wx += cs * 0.7) {
-    ctx.beginPath(); ctx.moveTo(wx, y0); ctx.lineTo(wx + size * 0.3, y0 + size); ctx.stroke();
+  for (let wx = x0 - cs + off; wx < x0 + width; wx += cs * 0.7) {
+    ctx.beginPath(); ctx.moveTo(wx, y0); ctx.lineTo(wx + width * 0.3, y0 + height); ctx.stroke();
   }
-  for (let wy = y0 + (frame * 0.3) % 18; wy < y0 + size; wy += 18) {
+  for (let wy = y0 + (frame * 0.3) % 18; wy < y0 + height; wy += 18) {
     ctx.beginPath(); ctx.moveTo(x0, wy);
-    for (let lx = x0; lx <= x0 + size; lx += 8)
+    for (let lx = x0; lx <= x0 + width; lx += 8)
       ctx.lineTo(lx, wy + Math.sin((lx - x0) * 0.08) * 2.5);
     ctx.stroke();
   }
@@ -21,17 +21,20 @@ export function drawWater(ctx, x0, y0, size, cs, frame) {
 
 /* ── Grid lines + headers ───────────────────────────────────────────────── */
 export function drawGrid(ctx, x0, y0, cs, cols, rows) {
+  const C = (cols && cols.length) || BOARD_COLS;
+  const R = (rows && rows.length) || BOARD_ROWS;
+
   ctx.font      = `bold ${Math.max(9, cs * 0.28)}px Share Tech Mono,monospace`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillStyle = 'rgba(255,255,255,0.7)';
-  for (let c = 0; c < N; c++) ctx.fillText(cols?.[c] ?? c + 1, x0 + c * cs + cs / 2, y0 - 10);
-  for (let r = 0; r < N; r++) ctx.fillText(rows?.[r] ?? r + 1, x0 - 10, y0 + r * cs + cs / 2);
+  for (let c = 0; c < C; c++) ctx.fillText(cols?.[c] ?? c + 1, x0 + c * cs + cs / 2, y0 - 10);
+  for (let r = 0; r < R; r++) ctx.fillText(rows?.[r] ?? r + 1, x0 - 10, y0 + r * cs + cs / 2);
 
   ctx.strokeStyle = 'rgba(255,255,255,0.18)';
   ctx.lineWidth   = 0.5;
-  for (let c = 0; c <= N; c++) { ctx.beginPath(); ctx.moveTo(x0+c*cs, y0); ctx.lineTo(x0+c*cs, y0+N*cs); ctx.stroke(); }
-  for (let r = 0; r <= N; r++) { ctx.beginPath(); ctx.moveTo(x0, y0+r*cs); ctx.lineTo(x0+N*cs, y0+r*cs); ctx.stroke(); }
+  for (let c = 0; c <= C; c++) { ctx.beginPath(); ctx.moveTo(x0+c*cs, y0); ctx.lineTo(x0+c*cs, y0+R*cs); ctx.stroke(); }
+  for (let r = 0; r <= R; r++) { ctx.beginPath(); ctx.moveTo(x0, y0+r*cs); ctx.lineTo(x0+C*cs, y0+r*cs); ctx.stroke(); }
 }
 
 /* ── Rounded rect helpers ───────────────────────────────────────────────── */
@@ -52,7 +55,7 @@ function rrStroke(ctx, x, y, w, h, r) {
 export function drawShip(ctx, si, cells, horiz, x0, y0, cs, alpha = 1) {
   if (!cells || cells.length === 0) return;
   const minI = Math.min(...cells);
-  const r0   = Math.floor(minI / N), c0 = minI % N;
+  const r0   = Math.floor(minI / BOARD_COLS), c0 = minI % BOARD_COLS;
   const px   = x0 + c0 * cs, py = y0 + r0 * cs;
   const sw   = horiz ? cs * cells.length : cs;
   const sh   = horiz ? cs : cs * cells.length;
@@ -195,7 +198,7 @@ export function drawPreview(ctx, cells, valid, x0, y0, cs) {
   ctx.globalAlpha = 0.38;
   ctx.fillStyle   = valid ? '#88ff88' : '#ff8888';
   cells.forEach(i => {
-    const r = Math.floor(i / N), c = i % N;
+    const r = Math.floor(i / BOARD_COLS), c = i % BOARD_COLS;
     ctx.fillRect(x0 + c * cs + 2, y0 + r * cs + 2, cs - 4, cs - 4);
   });
   ctx.restore();
@@ -204,7 +207,7 @@ export function drawPreview(ctx, cells, valid, x0, y0, cs) {
 /* ── Hover highlight ────────────────────────────────────────────────────── */
 export function drawHover(ctx, pos, x0, y0, cs) {
   if (pos < 0) return;
-  const r = Math.floor(pos / N), c = pos % N;
+  const r = Math.floor(pos / BOARD_COLS), c = pos % BOARD_COLS;
   ctx.save();
   ctx.globalAlpha = 0.28;
   ctx.fillStyle   = '#ffdd44';

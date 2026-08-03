@@ -6,9 +6,10 @@ export const SHIPS = [
   { name: 'Patrouilleur', size: 2, symbol: 'PT' },
 ];
 
-export const BOARD_SIZE = 10;
+export const BOARD_ROWS = 10; // number of rows (unchanged)
+export const BOARD_COLS = 15; // add 5 columns
 export const ROW_LABELS = 'ABCDEFGHIJ';
-export const COLUMN_LABELS = Array.from({ length: BOARD_SIZE }, (_, i) => String(i + 1));
+export const COLUMN_LABELS = Array.from({ length: BOARD_COLS }, (_, i) => String(i + 1));
 
 export const DIFFICULTY = {
   easy: 'Facile',
@@ -24,6 +25,6 @@ export const CELL_STATE = {
 };
 
 export const SHIPS_DEF = SHIPS;
-export const N = BOARD_SIZE;
+export const N = BOARD_COLS; // legacy alias (columns count)
 export const COLS = ROW_LABELS;
 export const COLS_LABELS = ROW_LABELS;

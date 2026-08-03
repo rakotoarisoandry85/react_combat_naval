@@ -1,5 +1,5 @@
 import { useCallback, useRef } from 'react';
-import { N } from '../constants/ships';
+import { BOARD_ROWS, BOARD_COLS } from '../constants/ships';
 import { idx, rc, getNeighbours } from '../utils/boardUtils';
 
 export function useAI(difficulty) {
@@ -10,7 +10,7 @@ export function useAI(difficulty) {
   }, []);
 
   const pickCell = useCallback((fired) => {
-    const available = [...Array(N * N).keys()].filter(i => !fired[i]);
+    const available = [...Array(BOARD_ROWS * BOARD_COLS).keys()].filter(i => !fired[i]);
     if (available.length === 0) return -1;
     const { hits, queue } = aiState.current;
 

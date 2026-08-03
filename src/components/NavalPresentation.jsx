@@ -1,7 +1,8 @@
 import React from 'react';
+import { BOARD_ROWS, BOARD_COLS, ROW_LABELS } from '../constants/ships';
 
-const rows = 'ABCDEFGHIJ'.split('');
-const columns = Array.from({ length: 10 }, (_, i) => i + 1);
+const rows = ROW_LABELS.split('');
+const columns = Array.from({ length: BOARD_COLS }, (_, i) => i + 1);
 
 function starPoints(cx, cy, outer, inner, points = 12) {
   return Array.from({ length: points * 2 }, (_, i) => {
@@ -134,10 +135,10 @@ export default function NavalPresentation() {
           {rows.map((row, index) => (
             <text key={row} x="24" y={83 + index * 32}>{row}</text>
           ))}
-          {Array.from({ length: 11 }, (_, i) => (
+          {Array.from({ length: columns.length + 1 }, (_, i) => (
             <line key={`v-${i}`} x1={46 + i * 52} y1="46" x2={46 + i * 52} y2="386" />
           ))}
-          {Array.from({ length: 11 }, (_, i) => (
+          {Array.from({ length: rows.length + 1 }, (_, i) => (
             <line key={`h-${i}`} x1="46" y1={46 + i * 34} x2="566" y2={46 + i * 34} />
           ))}
         </g>
