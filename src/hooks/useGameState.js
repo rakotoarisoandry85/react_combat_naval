@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { BOARD_SIZE, CELL_STATE, SHIPS } from '../constants/ships';
+import { BOARD_ROWS, BOARD_COLS, CELL_STATE, SHIPS } from '../constants/ships';
 import {
   getShipCells,
   canPlaceCells,
@@ -8,7 +8,7 @@ import {
 } from '../utils/boardUtils';
 import { useAI } from './useAI';
 
-const EMPTY_BOARD = () => Array(BOARD_SIZE * BOARD_SIZE).fill(CELL_STATE.EMPTY);
+const EMPTY_BOARD = () => Array(BOARD_ROWS * BOARD_COLS).fill(CELL_STATE.EMPTY);
 
 function buildInitialState() {
   return {
