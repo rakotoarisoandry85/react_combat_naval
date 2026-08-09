@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Exemple Three.js – Bateau sur l'eau</title>
+  <style>
+    body { margin: 0; overflow: hidden; background: #111; }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    // 1. Scène, caméra, renderer
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x87ceeb); // ciel bleu clair
+
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(8, 6, 12);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    document.body.appendChild(renderer.domElement);
+
+    // 2. Contrôles de souris (rotation / zoom)
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+
+    // 3. Lumières
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    scene.add(ambientLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+    dirLight.position.set(10, 15, 8);
+    scene.add(dirLight);
+
+    // 4. Eau (plan)
+    const waterGeometry = new THREE.PlaneGeometry(40, 40, 32, 32);
+    const waterMaterial = new THREE.MeshStandardMaterial({
+      color: 0x1e6fa8,
+      roughness: 0.3,
+      metalness: 0.1,
+      flatShading: false
+    });
+    const water = new THREE.Mesh(waterGeometry, waterMaterial);
+    water.rotation.x = -Math.PI / 2;
+    scene.add(water);
+
+    // Animation des vagues (simple)
+    const positions = water.geometry.attributes.position;
+    const originalY = [];
+    for (let i = 0; i < positions.count; i++) {
+      originalY[i] = positions.getY(i);
+    }
+
+    // 5. Bateau simple (coque + superstructure)
+    const shipGroup = new THREE.Group();
+
+    // Coque
+    const hullGeometry = new THREE.BoxGeometry(4, 0.6, 1.4);
+    const hullMaterial = new THREE.MeshStandardMaterial({ color: 0x8b5a20 });
+    const hull = new THREE.Mesh(hullGeometry, hullMaterial);
+    hull.position.y = 0.3;
+    shipGroup.add(hull);
+
+    // Pont
+    const deckGeometry = new THREE.BoxGeometry(3.6, 0.15, 1.2);
+    const deckMaterial = new THREE.MeshStandardMaterial({ color: 0xa8702a });
+    const deck = new THREE.Mesh(deckGeometry, deckMaterial);
+    deck.position.y = 0.65;
+    shipGroup.add(deck);
+
+    // Cabine
+    const cabinGeometry = new THREE.BoxGeometry(1.2, 0.7, 0.9);
+    const cabinMaterial = new THREE.MeshStandardMaterial({ color: 0x555555 });
+    const cabin = new THREE.Mesh(cabinGeometry, cabinMaterial);
+    cabin.position.set(0.3, 1.05, 0);
+    shipGroup.add(cabin);
+
+    // Mât
+    const mastGeometry = new THREE.CylinderGeometry(0.05, 0.05, 1.8);
+    const mastMaterial = new THREE.MeshStandardMaterial({ color: 0x333333 });
+    const mast = new THREE.Mesh(mastGeometry, mastMaterial);
+    mast.position.set(-0.8, 1.5, 0);
+    shipGroup.add(mast);
+
+    shipGroup.position.set(0, 0, 0);
+    scene.add(shipGroup);
+
+    // 6. Grille (optionnelle)
+    const grid = new THREE.GridHelper(40, 20, 0x444444, 0x222222);
+    grid.position.y = 0.01;
+    scene.add(grid);
+
+    // 7. Boucle d’animation
+    const clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const time = clock.getElapsedTime();
+
+      // Vagues sur l'eau
+      for (let i = 0; i < positions.count; i++) {
+        const x = positions.getX(i);
+        const z = positions.getZ(i);
+        positions.setY(i, Math.sin(x * 0.3 + time) * 0.15 + Math.sin(z * 0.4 + time * 1.2) * 0.1);
+      }
+      positions.needsUpdate = true;
+      water.geometry.computeVertexNormals();
+
+      // Léger mouvement du bateau
+      shipGroup.position.y = Math.sin(time * 1.5) * 0.08;
+      shipGroup.rotation.z = Math.sin(time * 0.8) * 0.03;
+      shipGroup.rotation.x = Math.sin(time * 0.6) * 0.02;
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    // Redimensionnement
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+</body>
+</html>
