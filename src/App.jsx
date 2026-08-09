@@ -5,6 +5,7 @@ import MessageBar from './components/MessageBar';
 import FleetSelector from './components/FleetSelector';
 import Controls from './components/Controls';
 import Board from './components/Board';
+import Board3D from './components/Board3D';          // ← nouveau
 import BattleLog from './components/BattleLog';
 import NavalPresentation from './components/NavalPresentation';
 import { SHIPS } from './constants/ships';
@@ -12,6 +13,7 @@ import './styles/naval.css';
 
 export default function App() {
   const [difficulty, setDifficulty] = useState('medium');
+  const [view3D, setView3D] = useState(false);        // ← état pour basculer 2D/3D
 
   const {
     state,
@@ -96,30 +98,75 @@ export default function App() {
         onDiffChange={handleDiffChange}
       />
 
+      {/* ========== Bouton de bascule 2D / 3D ========== */}
+      <div style={{ textAlign: 'center', margin: '12px 0 18px' }}>
+        <button
+          className="btn"
+          onClick={() => setView3D(v => !v)}
+          style={{
+            background: view3D ? '#1e6fa8' : '#2d5a3d',
+            color: 'white',
+            border: 'none',
+            padding: '8px 20px',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontWeight: 'bold',
+            letterSpacing: '0.5px',
+          }}
+        >
+          {view3D ? '🖥️ Passer en vue 2D' : '🌐 Passer en vue 3D'}
+        </button>
+      </div>
+
       <div className="boards-row">
+        {/* ========== VOTRE FLOTTE ========== */}
         <div className="board-wrap">
           <div className="board-label">VOTRE FLOTTE</div>
-          <Board
-            isEnemy={false}
-            myHits={state.myHits}
-            myShips={state.myShips}
-            getPreviewCells={getPreviewCells}
-            onPlace={placeShip}
-            phase={state.phase}
-            gameover={state.gameover}
-          />
+          {view3D ? (
+            <Board3D
+              isEnemy={false}
+              myHits={state.myHits}
+              myShips={state.myShips}
+              getPreviewCells={getPreviewCells}
+              onPlace={placeShip}
+              phase={state.phase}
+              gameover={state.gameover}
+            />
+          ) : (
+            <Board
+              isEnemy={false}
+              myHits={state.myHits}
+              myShips={state.myShips}
+              getPreviewCells={getPreviewCells}
+              onPlace={placeShip}
+              phase={state.phase}
+              gameover={state.gameover}
+            />
+          )}
         </div>
 
+        {/* ========== EAUX ENNEMIES ========== */}
         <div className="board-wrap">
           <div className="board-label">EAUX ENNEMIES</div>
-          <Board
-            isEnemy={true}
-            enemyBoard={state.enemyBoard}
-            enemyShips={state.enemyShips}
-            onShoot={playerShoot}
-            phase={state.phase}
-            gameover={state.gameover}
-          />
+          {view3D ? (
+            <Board3D
+              isEnemy={true}
+              enemyBoard={state.enemyBoard}
+              enemyShips={state.enemyShips}
+              onShoot={playerShoot}
+              phase={state.phase}
+              gameover={state.gameover}
+            />
+          ) : (
+            <Board
+              isEnemy={true}
+              enemyBoard={state.enemyBoard}
+              enemyShips={state.enemyShips}
+              onShoot={playerShoot}
+              phase={state.phase}
+              gameover={state.gameover}
+            />
+          )}
         </div>
       </div>
 
