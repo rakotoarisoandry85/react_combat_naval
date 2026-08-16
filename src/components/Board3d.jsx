@@ -1,37 +1,17 @@
-import React, { useRef, useMemo, useState, useCallback } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, Text, Html } from '@react-three/drei';
-import * as THREE from 'three';
+import React, { useState, useCallback } from 'react';
+import { Canvas } from '@react-three/fiber';
+import { OrbitControls, Text } from '@react-three/drei';
 import { BOARD_ROWS, BOARD_COLS, CELL_STATE, COLUMN_LABELS, ROW_LABELS } from '../constants/ships';
 
 const CELL_SIZE = 1;
 const GAP = 0.05;
 
-// ---------- Eau animée ----------
+// ---------- Eau statique (plus d'animation) ----------
 function Water() {
-  const mesh = useRef();
-  const geo = useMemo(() => new THREE.PlaneGeometry(
-    BOARD_COLS * CELL_SIZE,
-    BOARD_ROWS * CELL_SIZE,
-    BOARD_COLS * 2,
-    BOARD_ROWS * 2
-  ), []);
-
-  useFrame((state) => {
-    const t = state.clock.getElapsedTime();
-    const pos = geo.attributes.position;
-    for (let i = 0; i < pos.count; i++) {
-      const x = pos.getX(i);
-      const y = pos.getY(i);
-      pos.setZ(i, Math.sin(x * 0.8 + t) * 0.08 + Math.sin(y * 0.6 + t * 1.3) * 0.06);
-    }
-    pos.needsUpdate = true;
-    geo.computeVertexNormals();
-  });
-
   return (
-    <mesh ref={mesh} rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.05, 0]} geometry={geo}>
-      <meshStandardMaterial color="#1e6fa8" roughness={0.25} metalness={0.1} />
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.05, 0]}>
+      <planeGeometry args={[BOARD_COLS * CELL_SIZE, BOARD_ROWS * CELL_SIZE]} />
+      <meshStandardMaterial color="#1e6fa8" roughness={0.3} metalness={0.1} />
     </mesh>
   );
 }
@@ -61,8 +41,14 @@ function Cell({
   return (
     <mesh
       position={[x, 0.02, z]}
-      onClick={(e) => { e.stopPropagation(); onClick?.(index); }}
-      onPointerOver={(e) => { e.stopPropagation(); onHover?.(index); }}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick?.(index);
+      }}
+      onPointerOver={(e) => {
+        e.stopPropagation();
+        onHover?.(index);
+      }}
       onPointerOut={() => onHover?.(-1)}
     >
       <boxGeometry args={[CELL_SIZE - GAP, 0.04, CELL_SIZE - GAP]} />
@@ -75,7 +61,7 @@ function Cell({
   );
 }
 
-// ---------- Navire 3D simple (style bois) ----------
+// ---------- Navire 3D (corrigé) ----------
 function Ship3D({ ship, visible = true }) {
   if (!visible || !ship?.cells?.length) return null;
 
@@ -85,8 +71,8 @@ function Ship3D({ ship, visible = true }) {
   const c0 = minI % BOARD_COLS;
   const horizontal = ship.h ?? ship.horizontal;
 
-  const length = cells.length * CELL_SIZE - GAP;
-  const width = CELL_SIZE - GAP * 2;
+  const length = cells.length * CELL_SIZE - GAP * 0.6;
+  const width  = CELL_SIZE - GAP * 1.2;
 
   const centerC = c0 + (horizontal ? (cells.length - 1) / 2 : 0);
   const centerR = r0 + (horizontal ? 0 : (cells.length - 1) / 2);
@@ -94,35 +80,60 @@ function Ship3D({ ship, visible = true }) {
   const x = (centerC - (BOARD_COLS - 1) / 2) * CELL_SIZE;
   const z = (centerR - (BOARD_ROWS - 1) / 2) * CELL_SIZE;
 
+  const hullColor  = '#3d5a6c';
+  const deckColor  = '#5a7a8c';
+  const cabinColor = '#2a3f4d';
+
   return (
-    <group position={[x, 0.25, z]} rotation={[0, horizontal ? 0 : Math.PI / 2, 0]}>
+    <group
+      position={[x, 0.32, z]}
+      rotation={[0, horizontal ? 0 : Math.PI / 2, 0]}
+    >
+      {/* Ombre (corrigée : on utilise un cercle aplati) */}
+      <mesh position={[0, -0.28, 0]} rotation={[-Math.PI / 2, 0, 0]} scale={[length * 0.85, width * 1.1, 1]}>
+        <circleGeometry args={[0.5, 24]} />
+        <meshBasicMaterial color="#000000" transparent opacity={0.22} />
+      </mesh>
+
       {/* Coque */}
-      <mesh position={[0, 0, 0]}>
-        <boxGeometry args={[length, 0.35, width]} />
-        <meshStandardMaterial color="#8b5a20" roughness={0.7} />
+      <mesh>
+        <boxGeometry args={[length, 0.48, width]} />
+        <meshStandardMaterial color={hullColor} roughness={0.55} metalness={0.35} />
       </mesh>
+
       {/* Pont */}
-      <mesh position={[0, 0.22, 0]}>
-        <boxGeometry args={[length * 0.92, 0.08, width * 0.85]} />
-        <meshStandardMaterial color="#a8702a" />
+      <mesh position={[0, 0.28, 0]}>
+        <boxGeometry args={[length * 0.92, 0.12, width * 0.82]} />
+        <meshStandardMaterial color={deckColor} roughness={0.6} metalness={0.2} />
       </mesh>
+
       {/* Superstructure */}
-      <mesh position={[length * 0.15, 0.4, 0]}>
-        <boxGeometry args={[length * 0.3, 0.35, width * 0.6]} />
-        <meshStandardMaterial color="#555555" />
+      <mesh position={[length * 0.12, 0.52, 0]}>
+        <boxGeometry args={[length * 0.32, 0.42, width * 0.55]} />
+        <meshStandardMaterial color={cabinColor} roughness={0.45} metalness={0.4} />
+      </mesh>
+
+      {/* Mât */}
+      <mesh position={[-length * 0.25, 0.72, 0]}>
+        <cylinderGeometry args={[0.04, 0.04, 0.55, 6]} />
+        <meshStandardMaterial color="#1a2a35" metalness={0.6} />
       </mesh>
     </group>
   );
 }
 
-// ---------- Grille + labels ----------
+// ---------- Labels de la grille ----------
 function GridLabels() {
   return (
     <group>
       {COLUMN_LABELS.map((label, c) => (
         <Text
           key={`col-${c}`}
-          position={[(c - (BOARD_COLS - 1) / 2) * CELL_SIZE, 0.1, -((BOARD_ROWS) / 2) * CELL_SIZE - 0.6]}
+          position={[
+            (c - (BOARD_COLS - 1) / 2) * CELL_SIZE,
+            0.1,
+            -((BOARD_ROWS) / 2) * CELL_SIZE - 0.6,
+          ]}
           rotation={[-Math.PI / 2, 0, 0]}
           fontSize={0.35}
           color="#ffffff"
@@ -135,7 +146,11 @@ function GridLabels() {
       {ROW_LABELS.split('').map((label, r) => (
         <Text
           key={`row-${r}`}
-          position={[-((BOARD_COLS) / 2) * CELL_SIZE - 0.6, 0.1, (r - (BOARD_ROWS - 1) / 2) * CELL_SIZE]}
+          position={[
+            -((BOARD_COLS) / 2) * CELL_SIZE - 0.6,
+            0.1,
+            (r - (BOARD_ROWS - 1) / 2) * CELL_SIZE,
+          ]}
           rotation={[-Math.PI / 2, 0, 0]}
           fontSize={0.35}
           color="#ffffff"
@@ -149,7 +164,7 @@ function GridLabels() {
   );
 }
 
-// ---------- Scène principale ----------
+// ---------- Scène ----------
 function Scene({
   isEnemy,
   myHits,
@@ -167,33 +182,38 @@ function Scene({
 
   const hits = isEnemy ? enemyBoard : myHits;
 
-  const handleHover = useCallback((pos) => {
-    setHover(pos);
-    if (!isEnemy && phase === 'placement' && pos >= 0 && getPreviewCells) {
-      setPreview(getPreviewCells(pos));
-    } else {
-      setPreview({ cells: [], valid: false });
-    }
-  }, [isEnemy, phase, getPreviewCells]);
+  const handleHover = useCallback(
+    (pos) => {
+      setHover(pos);
+      if (!isEnemy && phase === 'placement' && pos >= 0 && getPreviewCells) {
+        setPreview(getPreviewCells(pos));
+      } else {
+        setPreview({ cells: [], valid: false });
+      }
+    },
+    [isEnemy, phase, getPreviewCells]
+  );
 
-  const handleClick = useCallback((pos) => {
-    if (pos < 0) return;
-    if (isEnemy && phase === 'battle' && !gameover && !enemyBoard?.[pos]) {
-      onShoot?.(pos);
-    }
-    if (!isEnemy && phase === 'placement') {
-      onPlace?.(pos);
-    }
-  }, [isEnemy, phase, gameover, enemyBoard, onShoot, onPlace]);
+  const handleClick = useCallback(
+    (pos) => {
+      if (pos < 0) return;
+      if (isEnemy && phase === 'battle' && !gameover && !enemyBoard?.[pos]) {
+        onShoot?.(pos);
+      }
+      if (!isEnemy && phase === 'placement') {
+        onPlace?.(pos);
+      }
+    },
+    [isEnemy, phase, gameover, enemyBoard, onShoot, onPlace]
+  );
 
   return (
     <>
       <ambientLight intensity={0.55} />
-      <directionalLight position={[12, 18, 10]} intensity={1.3} castShadow />
+      <directionalLight position={[12, 18, 10]} intensity={1.3} />
       <Water />
       <GridLabels />
 
-      {/* Cases */}
       {Array.from({ length: BOARD_ROWS * BOARD_COLS }).map((_, i) => (
         <Cell
           key={i}
@@ -208,13 +228,18 @@ function Scene({
         />
       ))}
 
-      {/* Navires */}
-      {!isEnemy && myShips.map((ship, i) => (
-        <Ship3D key={i} ship={ship} />
-      ))}
-      {isEnemy && gameover && enemyShips.map((ship, i) => (
-        <Ship3D key={i} ship={ship} visible={ship.hits.length < ship.cells.length} />
-      ))}
+      {!isEnemy &&
+        myShips.map((ship, i) => <Ship3D key={i} ship={ship} />)}
+
+      {isEnemy &&
+        gameover &&
+        enemyShips.map((ship, i) => (
+          <Ship3D
+            key={i}
+            ship={ship}
+            visible={ship.hits.length < ship.cells.length}
+          />
+        ))}
 
       <OrbitControls
         enablePan={true}
@@ -229,10 +254,17 @@ function Scene({
 // ---------- Composant exporté ----------
 export default function Board3D(props) {
   return (
-    <div style={{ width: '100%', height: 420, borderRadius: 8, overflow: 'hidden' }}>
+    <div
+      style={{
+        width: '100%',
+        height: 520,          // ← augmenté (était 420)
+        borderRadius: 8,
+        overflow: 'hidden',
+        boxShadow: '0 12px 32px rgba(0,0,0,0.4)',
+      }}
+    >
       <Canvas
-        camera={{ position: [0, 14, 16], fov: 45 }}
-        shadows
+        camera={{ position: [0, 16, 18], fov: 42 }}  // caméra un peu plus éloignée
         style={{ background: '#0a1a2a' }}
       >
         <Scene {...props} />

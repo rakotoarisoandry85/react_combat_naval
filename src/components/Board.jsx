@@ -7,7 +7,7 @@ import {
   drawMiss,
   drawPreview,
   drawShip,
-  drawWater,
+ // drawWater,
 } from '../utils/canvasDraw';
 
 const BOARD_PAD = 26;
@@ -81,7 +81,7 @@ export default function Board({
 
     ctx.setTransform(ratioX, 0, 0, ratioY, 0, 0);
     ctx.clearRect(0, 0, metrics.width, metrics.height);
-    drawWater(ctx, metrics.x0, metrics.y0, waterWidth, waterHeight, metrics.cs, frame + (isEnemy ? 50 : 0));
+    //drawWater(ctx, metrics.x0, metrics.y0, waterWidth, waterHeight, metrics.cs, frame + (isEnemy ? 50 : 0));
     drawGrid(ctx, metrics.x0, metrics.y0, metrics.cs, COLUMN_LABELS, ROW_LABELS);
 
     if (!isEnemy) {

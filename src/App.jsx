@@ -5,16 +5,19 @@ import MessageBar from './components/MessageBar';
 import FleetSelector from './components/FleetSelector';
 import Controls from './components/Controls';
 import Board from './components/Board';
-import Board3D from './components/Board3D';          // ← nouveau
+import Board3D from './components/Board3D';
 import BattleLog from './components/BattleLog';
 import NavalPresentation from './components/NavalPresentation';
+import SplashScreen from './components/SplashScreen';
 import { SHIPS } from './constants/ships';
 import './styles/naval.css';
 
 export default function App() {
   const [difficulty, setDifficulty] = useState('medium');
-  const [view3D, setView3D] = useState(false);        // ← état pour basculer 2D/3D
+  const [view3D, setView3D] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
 
+  // ✅ Tous les hooks doivent être appelés AVANT tout return conditionnel
   const {
     state,
     selectShip,
@@ -41,7 +44,9 @@ export default function App() {
     }
 
     if (phase === 'placement') {
-      if (allPlaced) return { msgText: 'Tous les navires sont places. Lancez la bataille !', msgVariant: 'default' };
+      if (allPlaced) {
+        return { msgText: 'Tous les navires sont places. Lancez la bataille !', msgVariant: 'default' };
+      }
 
       const ship = SHIPS[selectedShip];
       const orientation = horizontal ? 'Horizontal' : 'Vertical';
@@ -57,6 +62,11 @@ export default function App() {
     setDifficulty(val);
     reset();
   };
+
+  // ✅ Le return conditionnel se place APRÈS tous les hooks
+  if (showSplash) {
+    return <SplashScreen onStart={() => setShowSplash(false)} />;
+  }
 
   return (
     <div className="app">
@@ -98,11 +108,11 @@ export default function App() {
         onDiffChange={handleDiffChange}
       />
 
-      {/* ========== Bouton de bascule 2D / 3D ========== */}
+      {/* Bouton bascule 2D / 3D */}
       <div style={{ textAlign: 'center', margin: '12px 0 18px' }}>
         <button
           className="btn"
-          onClick={() => setView3D(v => !v)}
+          onClick={() => setView3D((v) => !v)}
           style={{
             background: view3D ? '#1e6fa8' : '#2d5a3d',
             color: 'white',
@@ -119,7 +129,7 @@ export default function App() {
       </div>
 
       <div className="boards-row">
-        {/* ========== VOTRE FLOTTE ========== */}
+        {/* VOTRE FLOTTE */}
         <div className="board-wrap">
           <div className="board-label">VOTRE FLOTTE</div>
           {view3D ? (
@@ -145,7 +155,7 @@ export default function App() {
           )}
         </div>
 
-        {/* ========== EAUX ENNEMIES ========== */}
+        {/* EAUX ENNEMIES */}
         <div className="board-wrap">
           <div className="board-label">EAUX ENNEMIES</div>
           {view3D ? (
